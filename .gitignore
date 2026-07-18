@@ -1,0 +1,70 @@
+# ── Environment ──
+.env
+.venv/
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── Streamlit ──
+.streamlit/
+
+# ── Project data directories (do NOT commit real data) ──
+data/
+outputs/
+outputs_backup_*/
+chroma_db*/
+archive/
+
+# ── Ground truth (only the template is committed) ──
+groundtruth/*
+!groundtruth/groundtruth.example.jsonl
+
+# ── Vector DB / binary artifacts ──
+*.bin
+*.pickle
+*.sqlite3
+*.sqlite
+
+# ── Documents ──
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.csv
+*.tsv
+
+# ── Images ──
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
+*.ico
+
+# ── Data / serialization ──
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pkl
+
+# ── Archives ──
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+*.log
+
+# ── Model weights (if downloaded locally) ──
+*.pt
+*.pth
+*.onnx
+*.safetensors
