@@ -1,0 +1,19 @@
+# ── Python 3.11+ ──
+# Core RAG dependencies
+python-dotenv==1.0.1
+PyMuPDF>=1.24.0
+chromadb==0.5.23
+sentence-transformers==3.3.1
+openai==1.59.6
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+
+# Data & progress
+pandas==2.2.3
+tqdm==4.67.1
+
+# Web UI
+streamlit==1.41.1
+
+# ── Testing ──
+pytest>=7.0
