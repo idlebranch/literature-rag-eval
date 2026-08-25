@@ -9,6 +9,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.rag_*.pid
+build/
+dist/
+*.spec
 
 # ── Streamlit ──
 .streamlit/
@@ -29,6 +33,8 @@ groundtruth/*
 *.pickle
 *.sqlite3
 *.sqlite
+sparse_index*/
+logs/
 
 # ── Documents ──
 *.pdf
