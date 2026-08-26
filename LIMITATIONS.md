@@ -31,3 +31,6 @@ RAG system. These are system boundaries, not bugs.
 RAG pipeline summary: 270 PDFs → section-aware ingestion → BGE-M3 Dense + Sparse
 + RRF (section_hybrid) → evidence-aware answerability (ANSWER / CLARIFY / REFUSE /
 PARTIAL_ANSWER / CORRECT_PREMISE) → traceable citations.
+
+Release methodology and pre-fixed acceptance gates are recorded in
+[docs/evaluation.md](docs/evaluation.md).

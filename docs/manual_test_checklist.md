@@ -1,4 +1,7 @@
-# Literature RAG 人工测试清单
+# 历史人工测试清单（pre-freeze）
+
+> 本清单保留早期 66-PDF Demo 的人工测试记录，不能用于验证 v1.0.0。
+> Release smoke test 以 `docs/release_smoke_test.md` 为准。
 
 测试对象是本地 `data/pdfs/` 的 66 篇水处理文献和 `literature_chunks` Chroma collection。下表不硬编码答案；“预期行为”用于核对证据边界，“实际回答”应在每次人工模型测试后填写或链接到评测产物。
 

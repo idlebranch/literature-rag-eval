@@ -84,6 +84,7 @@ def test_query_and_retrieval_cache_are_bounded_and_versioned(monkeypatch):
         ]
 
     retriever.clear_retrieval_caches()
+    monkeypatch.setattr(settings, "retrieval_mode", "dense_only")
     monkeypatch.setattr(retriever, "embed_query", fake_embed)
     monkeypatch.setattr(retriever, "search", fake_search)
     monkeypatch.setattr(retriever, "collection_version", lambda: version["value"])
@@ -114,6 +115,7 @@ def test_adjacent_duplicates_are_removed_without_truncating_chunks(monkeypatch):
     monkeypatch.setattr(retriever, "search", lambda vector, top_k: raw)
     monkeypatch.setattr(retriever, "collection_version", lambda: "dedupe-test")
     monkeypatch.setattr(settings, "context_token_budget", 10_000)
+    monkeypatch.setattr(settings, "retrieval_mode", "dense_only")
     retriever.clear_retrieval_caches()
 
     result = retriever.retrieve_with_metrics("PFAS", top_k=3)

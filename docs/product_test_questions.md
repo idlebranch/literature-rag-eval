@@ -1,4 +1,7 @@
-# Product Test Question Set
+# Historical Product Test Question Set (pre-freeze)
+
+> This question set belongs to the early `data/pdfs` corpus stage. It is not the
+> v1.0.0 acceptance set and does not describe the final runtime or metrics.
 
 用于产品可用性测试与 RAG 质量手工评测。所有问题基于 `data/pdfs/` 中的环境工程文献设计。
 
