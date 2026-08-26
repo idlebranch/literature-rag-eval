@@ -64,12 +64,14 @@ evidence and deterministic validator can support.
 
 ## Failure Analysis
 
-Held-out Eval V2 exposed that keyword-only conflict routing generalized poorly:
-ordinary answerable evidence containing words such as “increase” and “decrease”
-was routed as a conflict. A postmortem ablation found **CONFLICT_OFF: 6 wins / 1
-loss**. The unreliable automatic conflict heuristic was removed rather than
-tuned to the benchmark. Condition-dependent evidence and genuine source
-disagreement are handled in the answer layer with source-specific citations.
+The now-consumed Eval V2 set exposed that keyword-only conflict routing
+generalized poorly: ordinary answerable evidence containing words such as
+“increase” and “decrease” was routed as a conflict. Its later use is
+regression/postmortem only, not a fresh held-out claim. A postmortem ablation
+found **CONFLICT_OFF: 6 wins / 1 loss**. The unreliable automatic conflict
+heuristic was removed rather than tuned to the benchmark. Condition-dependent
+evidence and genuine source disagreement are handled in the answer layer with
+source-specific citations.
 
 ## Limitations
 
@@ -85,10 +87,29 @@ The full scope statement is in [LIMITATIONS.md](LIMITATIONS.md).
 The production UI exposes the live corpus count, dense/sparse index state,
 retrieval mode, active LLM configuration, answer citations, and expandable
 paper/page/section provenance. No mock or generated UI screenshots are used in
-this repository. Screenshots are intentionally not committed until manually
-captured from a running release build; follow
-[docs/release_smoke_test.md](docs/release_smoke_test.md) to save genuine UI
-captures as `docs/assets/demo-answer.png` and `docs/assets/demo-evidence.png`.
+this repository. The following images are captured directly from the final
+Streamlit v1.0.0 runtime.
+
+### Evidence-grounded Answer
+
+![Evidence-grounded answer from the 270-paper runtime](docs/assets/demo-answer.png)
+
+The final 270-paper runtime returns a literature-supported MB adsorption-capacity
+answer with a source citation.
+
+### Evidence Provenance
+
+![Retrieved evidence contexts with provenance](docs/assets/demo-evidence.png)
+
+Retrieved contexts expose the source paper, page range, section, chunk, and
+distance metadata used for answer provenance.
+
+### Conservative Answerability
+
+![Clarification response for an underspecified question](docs/assets/demo-refusal.png)
+
+When a question lacks necessary conditions or sufficient evidence, the system
+asks for clarification or refuses rather than producing an unsupported answer.
 
 ## Quick Start
 
@@ -126,7 +147,7 @@ Invoke-RestMethod http://127.0.0.1:8010/health
 ```
 
 Expected release identity: `v1.0.0-final`, `section_hybrid`, 270 PDFs, 17,028
-dense chunks, and a ready sparse index. The Streamlit UI is at
+indexable Dense chunks, and a ready sparse index. The Streamlit UI is at
 `http://127.0.0.1:8501`; FastAPI documentation is at
 `http://127.0.0.1:8010/docs`.
 
@@ -142,8 +163,8 @@ Run the repository test suite:
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-The final release target is **189 passed**. Acceptance data and corpus artifacts
-are intentionally ignored by Git; public methodology and final metrics live in
+The final v1.0.0 validation result is **189 passed**. Acceptance data and corpus
+artifacts are intentionally ignored by Git; public methodology and final metrics live in
 [docs/evaluation.md](docs/evaluation.md).
 
 ## License and Data

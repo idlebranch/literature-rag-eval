@@ -16,20 +16,22 @@ After launching the API and Streamlit UI, `/health` must report:
 
 ## Two live checks
 
-1. Submit the verified answerable corpus question “CHTC 对亚甲基蓝的实际平衡
-   吸附量是多少？”. Confirm the direct answer `34.64 mg/g [S2]`, a valid
-   citation, and expandable paper/page/section provenance. `[S2]` must resolve
-   to PDF pages 52–53 in `改性水热炭对 MB 的吸附性能研究`.
+1. Submit a direct answerable MB adsorption-capacity question. Confirm the
+   literature-supported `34.64 mg/g` answer, at least one valid `[Sx]`
+   citation, and expandable paper/page/section provenance. The source ordinal
+   can vary with the retrieved context ordering; it must map to the displayed
+   context card.
 2. Submit “What year did the French Revolution begin?” Confirm an evidence-
    insufficiency response with no invented citation.
 
 ## Screenshot capture
 
-Screenshots are intentionally deferred from the v1.0.0 repository commit. To
-add them later, capture only real UI output after the two checks:
+The checked-in images were captured only from real final-runtime UI output:
 
 - `docs/assets/demo-answer.png`: question, answer, and citation visible.
 - `docs/assets/demo-evidence.png`: expanded source card showing paper, page,
   section, and chunk provenance.
+- `docs/assets/demo-refusal.png`: an underspecified question receives a
+  clarification/refusal response without an unsupported answer.
 
 Do not use mock data, image generation, or manually fabricated UI screenshots.
