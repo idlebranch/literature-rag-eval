@@ -1,37 +1,32 @@
 # Release Smoke Test
 
-This is a release-verification checklist for the frozen v1.0.0 demo. It does
-not rebuild an index and does not run an acceptance benchmark.
+这是冻结 v1.0.0 演示的发布核对清单；它不会重建索引，也不会运行 acceptance benchmark。
 
 ## Runtime identity
 
-After launching the API and Streamlit UI, `/health` must report:
+启动 API 与 Streamlit UI 后，`/health` 应报告：
 
-- `application_version`: `1.0.0`
-- `build_id`: `v1.0.0-final`
-- knowledge base: 270 PDFs at `data/papers/final_corpus`
-- dense collection: `section_aware_270_gpu`, 17,028 chunks
-- sparse index: `ready`, 17,028 chunks
-- retrieval: `section_hybrid`, BGE-M3 Dense + Sparse, RRF, section-aware
+- `application_version`：`1.0.0`
+- `build_id`：`v1.0.0-final`
+- knowledge base：270 PDFs，路径为 `data/papers/final_corpus`
+- dense collection：`section_aware_270_gpu`，17,028 chunks
+- sparse index：`ready`，17,028 chunks
+- retrieval：`section_hybrid`、BGE-M3 Dense + Sparse、RRF、Section-aware
 
-## Two live checks
+## 两项 live checks
 
-1. Submit a direct answerable MB adsorption-capacity question. Confirm the
-   literature-supported `34.64 mg/g` answer, at least one valid `[Sx]`
-   citation, and expandable paper/page/section provenance. The source ordinal
-   can vary with the retrieved context ordering; it must map to the displayed
-   context card.
-2. Submit “What year did the French Revolution begin?” Confirm an evidence-
-   insufficiency response with no invented citation.
+1. 提交一个可直接回答的 MB 吸附容量问题。确认回答包含有文献支持的 `34.64 mg/g`、
+   至少一个有效 `[Sx]` citation，以及可展开的 paper/page/section provenance。source ordinal
+   会随检索 context 排序变化，但必须能映射回页面展示的 context card。
+2. 提交 “What year did the French Revolution begin?”。确认返回 evidence-insufficiency，且不
+   编造 citation。
 
-## Screenshot capture
+## 截图核对
 
-The checked-in images were captured only from real final-runtime UI output:
+仓库中的图片均从最终 runtime 的真实 UI 直接捕获：
 
-- `docs/assets/demo-answer.png`: question, answer, and citation visible.
-- `docs/assets/demo-evidence.png`: expanded source card showing paper, page,
-  section, and chunk provenance.
-- `docs/assets/demo-refusal.png`: an underspecified question receives a
-  clarification/refusal response without an unsupported answer.
+- `docs/assets/demo-answer.png`：可见 question、answer 与 citation。
+- `docs/assets/demo-evidence.png`：展开的 source card 展示 paper、page、section 与 chunk provenance。
+- `docs/assets/demo-refusal.png`：条件不足的问题收到 clarification/refusal，而不是无依据回答。
 
-Do not use mock data, image generation, or manually fabricated UI screenshots.
+不要使用 mock data、image generation 或手工伪造的 UI 截图。
