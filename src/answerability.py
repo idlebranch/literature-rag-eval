@@ -14,6 +14,7 @@ import re
 from enum import Enum
 from typing import List
 
+from src import evidence_support
 from src.config import settings
 
 
@@ -34,15 +35,15 @@ _VERIFY_RE = re.compile(
     r"is it (?:true|correct)|did .{0,40}(?:prove|show|report|reach))",
     re.IGNORECASE,
 )
-# superlative / comparative question without a target condition
+# superlative / comparative question asking WHICH is best (not "what is the best X")
 _SUPERLATIVE_RE = re.compile(
-    r"(哪种|哪个|哪一种|哪些|最好|最优|最佳|更强|更高|which (?:one |kind |type |method |technology |process )?is (?:best|better|optimal)|"
-    r"what is the best|better than)",
+    r"(哪种|哪个|哪一种|哪些|which .{0,30}(?:is|are) (?:the )?(?:best|better|optimal)|what is the best)",
     re.IGNORECASE,
 )
 # under-specified question asking for an effect/result without a metric
 _UNDERSPECIFIED_RE = re.compile(
-    r"(效果如何|效果怎么样|好不好|行不行|是否有效|管用吗|is (?:it )?(?:effective|good)|does it work)",
+    r"(效果如何|效果怎么样|好不好|行不行|是否有效|管用吗|does it work|"
+    r"is .{0,20} (?:effective|good|better|useful))",
     re.IGNORECASE,
 )
 # request for exhaustive / complete coverage
@@ -59,8 +60,9 @@ _DOMAIN_ANCHOR_RE = re.compile(
     r"(pfas|pfoa|pfos|aop|pms|pds|ozone|臭氧|photocatal|光催化|fenton|芬顿|membrane|膜|"
     r"adsorption|吸附|activated carbon|活性炭|catalyst|催化|pollutant|contaminant|污染物|"
     r"wastewater|废水|drinking water|饮用水|dom|nom|antibiotic|抗生素|bisphenol|双酚|"
-    r"sludge|污泥|biological|生物|coagul|絮凝|disinfect|消毒|electro|电化学|"
-    r"nitrogen|氮|phosphorus|磷|microplastic|微塑料|water treatment|水处理)",
+    r"sludge|污泥|biological|生物|coagul|絮凝|混凝|disinfect|消毒|electro|电化学|电絮凝|"
+    r"nitrogen|氮|phosphorus|磷|microplastic|微塑料|water treatment|水处理|oxidation|氧化|"
+    r"高级氧化|工艺|再生|降解|去除|水质|污水)",
     re.IGNORECASE,
 )
 
@@ -94,10 +96,8 @@ def detect_false_premise(question: str, hits: List[dict]) -> bool:
     that the retrieved evidence contradicts (i.e. the premise is unsupported)."""
     if not _VERIFY_RE.search(question):
         return False
-    # numeric claim never present in the evidence => likely false premise
-    qnums = _NUM_RE.findall(question)
-    evnums = _evidence_numbers(hits)
-    if qnums and evnums and any(n not in evnums for n in qnums):
+    # metric-aware numeric contradiction (avoids coincidental numbers elsewhere)
+    if evidence_support.contradicting_number(question, hits):
         return True
     # superlative claim ("最稳定") contradicted by a negative marker in evidence
     if _SUPERLATIVE_CLAIM_RE.search(question):
@@ -140,12 +140,17 @@ def classify_action(
     # claim the evidence contradicts is a premise error, not a genuine conflict).
     if detect_false_premise(question, hits):
         return Action.CORRECT_PREMISE, "verification_claim_unsupported_by_evidence"
-    if evidence_status == "conflicting":
-        return Action.PRESENT_CONFLICT, "conflicting_evidence"
     if is_ambiguous(question):
         return Action.CLARIFY, "ambiguous_or_underspecified_query"
+    if evidence_status == "conflicting":
+        return Action.PRESENT_CONFLICT, "conflicting_evidence"
     if is_partial(question):
         return Action.PARTIAL_ANSWER, "exhaustive_request_but_limited_evidence"
+    # claim-level support: a numeric value request whose metric has no number in
+    # the evidence is unsupported, not answerable.
+    support, support_reason = evidence_support.evaluate_support(question, hits)
+    if support == evidence_support.SupportStatus.UNSUPPORTED:
+        return Action.REFUSE, f"claim_unsupported:{support_reason}"
     return Action.ANSWER, ""
 
 
