@@ -64,10 +64,12 @@ def test_correct_premise_when_numeric_claim_unsupported():
     assert a == Action.CORRECT_PREMISE
 
 
-def test_present_conflict_when_conflicting_evidence():
+def test_conflict_not_auto_routed():
+    # automatic PRESENT_CONFLICT routing has been removed: even a manually
+    # supplied "conflicting" evidence_status no longer forces PRESENT_CONFLICT.
     a, _ = _classify("does X increase Y?", ["X increases Y", "X decreases Y"],
                      status="conflicting")
-    assert a == Action.PRESENT_CONFLICT
+    assert a != Action.PRESENT_CONFLICT
 
 
 # ---------------------------------------------------------------- behavioral rules
@@ -88,9 +90,11 @@ def test_false_premise_is_corrected_not_refused():
     assert a == Action.CORRECT_PREMISE
 
 
-def test_conflict_not_single_conclusion():
-    a, _ = _classify("q", ["A says higher", "B says lower"], status="conflicting")
-    assert a == Action.PRESENT_CONFLICT
+def test_opposite_words_not_auto_conflict():
+    # same-paper rise-then-fall, or opposite words in different metrics, must NOT
+    # be auto-classified as conflict (regression: heuristic removed).
+    a, _ = _classify("这个工艺的效果如何？", ["removal increases with dose", "removal decreases at high dose"])
+    assert a != Action.PRESENT_CONFLICT
 
 
 # ---------------------------------------------------------------- helpers

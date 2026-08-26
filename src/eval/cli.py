@@ -105,6 +105,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         run_id=args.run_id,
         output_path=out_path,
         prompt_version=args.prompt_version,
+        answer_mode=args.answer_mode,
         sleep_secs=args.sleep,
         limit=args.limit,
         skip_preflight=args.skip_preflight,
@@ -177,6 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--groundtruth", required=True)
     pr.add_argument("--run-id", required=True)
     pr.add_argument("--prompt-version", default="")
+    pr.add_argument("--answer-mode", choices=["quick", "detailed"], default="quick")
     pr.add_argument("--limit", type=int, default=None)
     pr.add_argument("--sleep", type=float, default=0.5)
     pr.add_argument("--skip-preflight", action="store_true",

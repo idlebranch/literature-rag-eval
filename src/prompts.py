@@ -52,7 +52,7 @@ def build_answer_user_prompt(
     action=None,
 ) -> str:
     status_text = {
-        "available": "检索阶段未发现明显冲突；仍需逐条核对证据是否支持结论。",
+        "available": "检索阶段不执行可靠的自动冲突判定，请按来源、指标和实验条件逐条核对证据。",
         "conflicting": "检索片段出现可能相反的结果信号；必须分别呈现差异，不得强行给唯一结论。",
     }.get(evidence_status, "必须先判断证据是否足够。")
 
