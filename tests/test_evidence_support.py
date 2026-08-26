@@ -57,9 +57,11 @@ def test_partial_evidence_routes_partial_answer():
     assert a == Action.PARTIAL_ANSWER
 
 
-def test_conflicting_evidence_routes_present_conflict():
+def test_conflicting_evidence_no_longer_auto_routed():
+    # automatic PRESENT_CONFLICT is removed; opposite-direction keywords do not
+    # auto-route conflict anymore.
     a, _ = _cls("does X increase Y?", ["X increases Y", "X decreases Y"], status="conflicting")
-    assert a == Action.PRESENT_CONFLICT
+    assert a != Action.PRESENT_CONFLICT
 
 
 def test_citation_chunk_mismatch_unsupported():

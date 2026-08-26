@@ -58,21 +58,6 @@ _NUMERIC_EVIDENCE_RE = re.compile(
     r"\d+(?:\.\d+)?\s*(?:%|mg/?L|g/?L|mol/?L|mmol/?L|µg/?L|μg/?L|℃|°C|min|h|分钟|小时)",
     flags=re.IGNORECASE,
 )
-_CONFLICT_PAIRS = (
-    ("提高", "降低"),
-    ("增加", "减少"),
-    ("促进", "抑制"),
-    ("有效", "无效"),
-    ("稳定", "失活"),
-    ("higher", "lower"),
-    ("increase", "decrease"),
-    ("effective", "ineffective"),
-)
-_CONFLICT_METRIC_RE = re.compile(
-    r"(反应速率|去除率|降解率|矿化率|吸附容量|通量|能耗|成本|毒性|稳定性|寿命|"
-    r"rate|removal|degradation|mineralization|capacity|flux|energy|cost|toxicity|stability)",
-    flags=re.IGNORECASE,
-)
 
 
 def _normalize_answer_mode(answer_mode: str) -> AnswerMode:
@@ -192,36 +177,18 @@ def _coerce_retrieval_result(value: Any, question: str) -> RetrievalResult:
 
 
 def _evidence_status(question: str, hits: List[Dict[str, Any]]) -> str:
+    """Reliable evidence status: only insufficient / available.
+
+    No automatic conflict detection: keyword-based increase/decrease scanning was
+    removed because it systematically mis-classified ordinary ANSWERABLE text as
+    conflicting on held-out data. Genuine source/condition disagreements are
+    handled by the generation prompt (present each source and condition).
+    """
     if not hits:
         return "insufficient"
     combined = "\n".join(str(hit.get("text", "")) for hit in hits)
     if _EXACT_VALUE_REQUEST_RE.search(question) and not _NUMERIC_EVIDENCE_RE.search(combined):
         return "insufficient"
-    source_sentences = [
-        [part.casefold() for part in re.split(r"[。！？!?;；]", str(hit.get("text", ""))) if part]
-        for hit in hits
-    ]
-    for positive, negative in _CONFLICT_PAIRS:
-        positive_sentences = [
-            (index, sentence)
-            for index, sentences in enumerate(source_sentences)
-            for sentence in sentences
-            if positive.casefold() in sentence
-        ]
-        negative_sentences = [
-            (index, sentence)
-            for index, sentences in enumerate(source_sentences)
-            for sentence in sentences
-            if negative.casefold() in sentence
-        ]
-        for positive_index, positive_sentence in positive_sentences:
-            positive_metrics = set(_CONFLICT_METRIC_RE.findall(positive_sentence))
-            for negative_index, negative_sentence in negative_sentences:
-                if positive_index == negative_index:
-                    continue
-                negative_metrics = set(_CONFLICT_METRIC_RE.findall(negative_sentence))
-                if positive_metrics & negative_metrics:
-                    return "conflicting"
     return "available"
 
 

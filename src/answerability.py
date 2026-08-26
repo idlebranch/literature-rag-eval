@@ -136,14 +136,16 @@ def classify_action(
         return Action.REFUSE, "no_retrieved_evidence"
     if best_distance > settings.max_retrieval_distance:
         return Action.REFUSE, "distance_above_threshold"
-    # false premise takes precedence over conflict (a verification question whose
-    # claim the evidence contradicts is a premise error, not a genuine conflict).
+    # false premise takes precedence (a verification question whose claim the
+    # evidence contradicts is a premise error).
     if detect_false_premise(question, hits):
         return Action.CORRECT_PREMISE, "verification_claim_unsupported_by_evidence"
     if is_ambiguous(question):
         return Action.CLARIFY, "ambiguous_or_underspecified_query"
-    if evidence_status == "conflicting":
-        return Action.PRESENT_CONFLICT, "conflicting_evidence"
+    # NOTE: automatic PRESENT_CONFLICT routing has been removed. Reliable conflict
+    # detection needs claim/condition alignment, which a keyword heuristic cannot
+    # provide; genuine source/condition disagreements are left to the generation
+    # prompt. Action.PRESENT_CONFLICT stays defined for API compatibility only.
     if is_partial(question):
         return Action.PARTIAL_ANSWER, "exhaustive_request_but_limited_evidence"
     # claim-level support: a numeric value request whose metric has no number in
