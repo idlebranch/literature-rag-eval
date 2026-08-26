@@ -1,4 +1,7 @@
-# Literature curation — 2026-07-18
+# Historical Literature Curation — 2026-07-18
+
+> This is an archival curation note for a pre-freeze corpus. The v1.0.0 runtime
+> uses the frozen 270-PDF corpus documented in `README.md`.
 
 ## Scope
 

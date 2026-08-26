@@ -1,6 +1,6 @@
 {
-  "project_id": "literature-rag-eval-code",
-  "application_version": "2.0.0",
-  "build_id": "20260807-rag-accuracy-v2",
+  "project_id": "literature-rag-eval",
+  "application_version": "1.0.0",
+  "build_id": "v1.0.0-final",
   "prompt_version": "rag_answer_prompt_v2"
 }

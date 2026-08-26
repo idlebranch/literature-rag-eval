@@ -112,7 +112,12 @@ def simplify_context(hit: dict[str, Any]) -> dict[str, Any]:
         "distance": hit.get("distance"),
         "metadata": {
             "source": str(metadata.get("source", "")),
+            "paper_id": str(metadata.get("paper_id", "")),
             "page": metadata.get("page"),
+            "page_start": metadata.get("page_start"),
+            "page_end": metadata.get("page_end"),
+            "section": metadata.get("section"),
+            "chunking_mode": metadata.get("chunking_mode"),
             "chunk_index": metadata.get("chunk_index"),
         },
     }

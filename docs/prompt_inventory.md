@@ -11,7 +11,7 @@
 | 四维/扩展评测 | 与 LLM Judge 共用同一组 messages | 显式 Judge 运行 | 否 | 不额外增加第二个 Judge | 旧说明只列 faithfulness、completeness、citation、overall | 在同一次 Judge 中增加 correctness、evidence relevance |
 | 七类错误归因 | `src/eval/badcase.py` | 显式 badcase/export | 否 | 否 | 无模型 Prompt；可能被误认为自动归因 | 保持确定性规则，只在评测路径运行 |
 | fallback / 防注入 / 模糊问题 | `src/rag_chain.py` 的 guardrail 与 evidence 判断 | 命中安全、歧义或证据不足条件 | 是 | 否；通常为 0 次 | 无答案、精确数值和歧义场景边界不足 | 已扩展确定性规则，不增加修复模型调用 |
-| 文档上传/摘要/索引 | `src/ingest.py`、PDF/Embedding 流程 | 人工受控建库 | 否 | 否 | 当前正式产品没有上传摘要 LLM | 不新增 Prompt，不改 66 PDF，不重建索引 |
+| 文档上传/摘要/索引 | `src/ingest.py`、PDF/Embedding 流程 | 人工受控建库 | 否 | 否 | 当前正式产品没有上传摘要 LLM | 不新增 Prompt，不改冻结的 270-PDF 语料或索引 |
 
 ## 普通问答的最终调用链
 

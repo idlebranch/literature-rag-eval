@@ -4,6 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
@@ -30,10 +31,62 @@ def _iso_mtime(path: Path) -> str | None:
     return datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat(timespec="seconds")
 
 
+def _display_project_path(path: Path) -> str:
+    """Return a stable, non-machine-specific path for public runtime status."""
+    root = Path(settings.project_root)
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _sparse_index_status(sqlite_file: Path) -> dict[str, Any]:
+    """Check sparse-index identity from its manifest without loading model artifacts."""
+    sparse_dir = Path(settings.sparse_index_dir)
+    manifest_path = sparse_dir / "manifest.json"
+    index_path = sparse_dir / "index.npz"
+    result: dict[str, Any] = {
+        "status": "missing",
+        "path": _display_project_path(sparse_dir),
+        "chunk_count": None,
+        "index_name": None,
+        "error_type": None,
+    }
+    if not manifest_path.is_file() or not index_path.is_file() or index_path.stat().st_size <= 0:
+        return result
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = payload.get("manifest") or {}
+        expected_version = (
+            f"{settings.collection_name}:{sqlite_file.stat().st_mtime_ns}:{sqlite_file.stat().st_size}"
+            if sqlite_file.is_file()
+            else None
+        )
+        result.update(
+            {
+                "chunk_count": manifest.get("chunk_count"),
+                "index_name": manifest.get("index_name"),
+            }
+        )
+        if (
+            expected_version
+            and manifest.get("collection_version") == expected_version
+            and manifest.get("index_name") == settings.collection_name
+            and manifest.get("chunking_mode") == settings.chunking_mode
+        ):
+            result["status"] = "ready"
+        else:
+            result["status"] = "stale"
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        result.update({"status": "failed", "error_type": type(exc).__name__})
+    return result
+
+
 def _build_status() -> dict[str, Any]:
     pdf_dir = Path(settings.pdf_dir)
     chroma_dir = Path(settings.chroma_dir)
     sqlite_file = chroma_dir / "chroma.sqlite3"
+    sparse_index = _sparse_index_status(sqlite_file)
     from src.warmup import get_warmup_state
 
     warmup = get_warmup_state()
@@ -71,6 +124,8 @@ def _build_status() -> dict[str, Any]:
     evaluation_available = importlib.util.find_spec("src.eval.runner") is not None
     knowledge_ready = pdf_count > 0
     vector_ready = index_status == "ready"
+    sparse_required = settings.retrieval_mode in {"hybrid_dense_sparse", "hybrid_reranker"}
+    sparse_ready = not sparse_required or sparse_index["status"] == "ready"
     prewarmed = bool(warmup.get("prewarmed")) if warmup_matches else False
     rag_ready = (
         knowledge_ready
@@ -78,21 +133,23 @@ def _build_status() -> dict[str, Any]:
         and llm_configured
         and embedding_package
         and prewarmed
+        and sparse_ready
     )
 
     knowledge_base = {
         "status": "ready" if knowledge_ready else "missing",
         "document_count": pdf_count,
-        "path": "data/pdfs",
+        "path": _display_project_path(pdf_dir),
     }
     vector_index = {
         "status": index_status,
         "type": "ChromaDB",
         "collection": settings.collection_name,
         "chunk_count": chunk_count,
-        "path": "chroma_db",
+        "path": _display_project_path(chroma_dir),
         "last_updated": _iso_mtime(sqlite_file),
         "error_type": index_error,
+        "sparse": sparse_index,
     }
     llm_runtime: dict[str, Any] = {
         "network_checked": False,
@@ -131,6 +188,23 @@ def _build_status() -> dict[str, Any]:
         "error_type": embedding_error,
     }
 
+    frozen_section_hybrid = (
+        settings.collection_name == "section_aware_270_gpu"
+        and settings.chunking_mode == "section_aware"
+        and settings.retrieval_mode == "hybrid_dense_sparse"
+    )
+    retrieval = {
+        "mode": settings.retrieval_mode,
+        "label": "section_hybrid" if frozen_section_hybrid else settings.retrieval_mode,
+        "pipeline": (
+            "BGE-M3 Dense + Sparse"
+            if sparse_required
+            else "BGE-M3 Dense"
+        ),
+        "fusion": "RRF" if sparse_required else None,
+        "chunking": settings.chunking_mode,
+    }
+
     return {
         "status": "ok" if rag_ready else "degraded",
         "service": "literature-rag-api",
@@ -152,6 +226,7 @@ def _build_status() -> dict[str, Any]:
         },
         "knowledge_base": knowledge_base,
         "vector_index": vector_index,
+        "retrieval": retrieval,
         "llm": llm,
         "embedding": embedding,
         "tracing": {

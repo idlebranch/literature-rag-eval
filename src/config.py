@@ -37,15 +37,17 @@ class Settings:
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
     embedding_local_files_only: bool = _env_bool("EMBEDDING_LOCAL_FILES_ONLY", True)
 
-    chroma_dir: str = _project_path("CHROMA_DIR", "chroma_db")
-    collection_name: str = os.getenv("COLLECTION_NAME", "literature_chunks")
+    # Production demo defaults are the frozen final acceptance pipeline. Explicit
+    # process environment values still win for isolated, non-production index work.
+    chroma_dir: str = _project_path("CHROMA_DIR", "chroma_db_section_aware_270_gpu")
+    collection_name: str = os.getenv("COLLECTION_NAME", "section_aware_270_gpu")
 
     top_k: int = int(os.getenv("TOP_K", "5"))
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "150"))
     # "fixed" keeps the legacy per-page fixed-size chunker; "section_aware"
     # enables section-aware + page-traceable chunking with fixed fallback.
-    chunking_mode: str = os.getenv("CHUNKING_MODE", "fixed")
+    chunking_mode: str = os.getenv("CHUNKING_MODE", "section_aware")
     section_min_chunk: int = int(os.getenv("SECTION_MIN_CHUNK", "30"))
     max_retrieval_distance: float = float(os.getenv("MAX_RETRIEVAL_DISTANCE", "1.15"))
     context_token_budget: int = int(os.getenv("CONTEXT_TOKEN_BUDGET", "3000"))
@@ -55,12 +57,12 @@ class Settings:
     # Retrieval pipeline mode. dense_only keeps the historical behavior;
     # hybrid_dense_sparse and hybrid_reranker fail loudly when their
     # prerequisites are missing instead of silently falling back to dense.
-    retrieval_mode: str = os.getenv("RETRIEVAL_MODE", "dense_only")
+    retrieval_mode: str = os.getenv("RETRIEVAL_MODE", "hybrid_dense_sparse")
     hybrid_dense_k: int = int(os.getenv("HYBRID_DENSE_K", "25"))
     hybrid_sparse_k: int = int(os.getenv("HYBRID_SPARSE_K", "25"))
     hybrid_fusion_k: int = int(os.getenv("HYBRID_FUSION_K", "25"))
     rrf_k: int = int(os.getenv("RRF_K", "60"))
-    sparse_index_dir: str = _project_path("SPARSE_INDEX_DIR", "sparse_index")
+    sparse_index_dir: str = _project_path("SPARSE_INDEX_DIR", "sparse_index_section_aware_270_gpu")
     sparse_max_length: int = int(os.getenv("SPARSE_MAX_LENGTH", "512"))
     bge_m3_local_dir: str = os.getenv("BGE_M3_LOCAL_DIR", "")
 
@@ -73,7 +75,7 @@ class Settings:
     llm_read_timeout: float = float(os.getenv("LLM_READ_TIMEOUT", "120"))
     llm_max_retries: int = int(os.getenv("LLM_MAX_RETRIES", "1"))
 
-    pdf_dir: str = _project_path("PDF_DIR", "data/pdfs")
+    pdf_dir: str = _project_path("PDF_DIR", "data/papers/final_corpus")
     output_dir: str = _project_path("OUTPUT_DIR", "outputs")
     # CSV manifest mapping final_file -> title/doi; used to enrich chunk metadata.
     paper_manifest_path: str = _project_path("PAPER_MANIFEST", "data/papers/final_paper_manifest.csv")

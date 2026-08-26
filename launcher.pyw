@@ -69,7 +69,11 @@ logger = logging.getLogger("literature-rag-launcher")
 
 def public_env() -> dict[str, str]:
     """Read only non-secret launcher settings; never log or return credentials."""
-    allowed = {"RAG_API_HOST", "RAG_API_PORT", "RAG_UI_PORT", "RAG_EVAL_PORT"}
+    allowed = {
+        "RAG_API_HOST", "RAG_API_PORT", "RAG_UI_PORT", "RAG_EVAL_PORT",
+        "PDF_DIR", "CHROMA_DIR", "COLLECTION_NAME", "CHUNKING_MODE",
+        "RETRIEVAL_MODE", "SPARSE_INDEX_DIR", "LLM_MODEL",
+    }
     values: dict[str, str] = {}
     path = ROOT / ".env"
     if not path.is_file():
@@ -94,9 +98,9 @@ API_HOST = PUBLIC_ENV.get("RAG_API_HOST", "127.0.0.1")
 
 def build_manifest() -> dict[str, str]:
     defaults = {
-        "project_id": "literature-rag-eval-code",
-        "application_version": "2.0.0",
-        "build_id": "20260807-rag-accuracy-v2",
+        "project_id": "literature-rag-eval",
+        "application_version": "1.0.0",
+        "build_id": "v1.0.0-final",
         "prompt_version": "rag_answer_prompt_v2",
     }
     try:
@@ -383,10 +387,16 @@ def stop_service(kind: str, *, quiet: bool = False) -> bool:
     return True
 
 
+def configured_project_path(key: str, default: str) -> Path:
+    path = Path(PUBLIC_ENV.get(key, default)).expanduser()
+    return path if path.is_absolute() else ROOT / path
+
+
 def offline_project_status() -> tuple[int, bool, bool, str]:
-    pdf_dir = ROOT / "data" / "pdfs"
+    pdf_dir = configured_project_path("PDF_DIR", "data/papers/final_corpus")
     pdf_count = len(list(pdf_dir.rglob("*.pdf"))) if pdf_dir.is_dir() else 0
-    index_exists = (ROOT / "chroma_db" / "chroma.sqlite3").is_file()
+    chroma_dir = configured_project_path("CHROMA_DIR", "chroma_db_section_aware_270_gpu")
+    index_exists = (chroma_dir / "chroma.sqlite3").is_file()
     llm_configured = False
     llm_model = "unknown"
     env_file = ROOT / ".env"
@@ -434,8 +444,8 @@ class Launcher:
             pass
         self.dpi_scale = max(1.0, dpi / 96.0)
         root.tk.call("tk", "scaling", max(1.0, dpi / 72.0))
-        root.geometry(f"{round(760 * self.dpi_scale)}x{round(620 * self.dpi_scale)}")
-        root.minsize(round(700 * self.dpi_scale), round(570 * self.dpi_scale))
+        root.geometry(f"{round(760 * self.dpi_scale)}x{round(660 * self.dpi_scale)}")
+        root.minsize(round(700 * self.dpi_scale), round(610 * self.dpi_scale))
         root.protocol("WM_DELETE_WINDOW", root.destroy)
 
         default_font = ("Microsoft YaHei UI", 10)
@@ -462,6 +472,7 @@ class Launcher:
             "ui": tk.StringVar(value="未检查"),
             "knowledge": tk.StringVar(value="未检查"),
             "index": tk.StringVar(value="未检查"),
+            "retrieval": tk.StringVar(value="未检查"),
             "embedding": tk.StringVar(value="未检查"),
             "version": tk.StringVar(value="未检查"),
             "llm": tk.StringVar(value="未检查"),
@@ -471,6 +482,7 @@ class Launcher:
             ("前端服务", "ui"),
             ("知识库", "knowledge"),
             ("向量索引", "index"),
+            ("检索链路", "retrieval"),
             ("Embedding", "embedding"),
             ("构建 / Prompt", "version"),
             ("LLM 配置", "llm"),
@@ -740,6 +752,7 @@ class Launcher:
             self.set_status("api", "运行中" if health.get("api_ready") else "异常")
         knowledge = health.get("knowledge_base") or {}
         index = health.get("vector_index") or {}
+        retrieval = health.get("retrieval") or {}
         llm = health.get("llm") or {}
         self.set_status(
             "knowledge",
@@ -747,7 +760,11 @@ class Launcher:
         )
         self.set_status(
             "index",
-            f"{index.get('status', 'unknown')} · {index.get('chunk_count', '—')} chunks",
+            f"{index.get('status', 'unknown')} · Dense {index.get('chunk_count', '—')} chunks · Sparse {(index.get('sparse') or {}).get('status', 'unknown')}",
+        )
+        self.set_status(
+            "retrieval",
+            f"{retrieval.get('label', retrieval.get('mode', 'unknown'))} · {retrieval.get('chunking', 'unknown')}",
         )
         embedding = health.get("embedding") or {}
         self.set_status(
@@ -780,6 +797,7 @@ class Launcher:
                 pdf_count, index_exists, llm_configured, llm_model = offline_project_status()
                 self.set_status("knowledge", f"{'ready' if pdf_count else 'missing'} · {pdf_count} PDFs")
                 self.set_status("index", "文件存在 · 服务未检查" if index_exists else "missing")
+                self.set_status("retrieval", "服务未检查")
                 self.set_status("embedding", "服务未检查")
                 self.set_status(
                     "version",

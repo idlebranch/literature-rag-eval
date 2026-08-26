@@ -1,4 +1,8 @@
-# Literature RAG 性能诊断与优化报告
+# 历史性能诊断与优化报告（pre-freeze）
+
+> 本文记录的是冻结前的 66-PDF Demo，不是 v1.0.0 的运行配置、性能基线或发布指标。
+> 最终 270-PDF `section_hybrid` release 请以 `README.md` 和
+> `docs/evaluation.md` 为准。
 
 测试日期：2026-08-07（Asia/Shanghai）
 

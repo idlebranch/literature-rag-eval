@@ -78,24 +78,44 @@ def stream_rag(
                 raise RuntimeError(str(event.get("message", "流式请求失败。")))
 
 
-st.set_page_config(page_title="Literature RAG", page_icon="📚", layout="wide")
-st.title("Literature RAG")
-st.caption("水处理科学文献问答：PDF → Chroma → Retrieval → LLM Answer → Citation")
+st.set_page_config(page_title="Literature RAG for Water Treatment", page_icon="📚", layout="wide")
+st.title("Literature RAG for Water Treatment")
+st.caption(
+    "Scientific PDF → Section-aware Parsing → Dense + Sparse Retrieval → RRF → "
+    "Evidence-aware Answering → Citation Validation"
+)
 
 health = read_health()
 st.sidebar.header("📊 Runtime Status")
 if health:
     knowledge = health.get("knowledge_base") or {}
     vector = health.get("vector_index") or {}
+    sparse = vector.get("sparse") or {}
+    retrieval = health.get("retrieval") or {}
     embedding = health.get("embedding") or {}
     llm = health.get("llm") or {}
-    st.sidebar.metric("📄 PDF Files", knowledge.get("document_count", "—"))
-    st.sidebar.metric("🧩 Chroma Chunks", vector.get("chunk_count", "—"))
+    st.sidebar.metric("📄 Knowledge Base", f"{knowledge.get('document_count', '—')} PDFs")
+    st.sidebar.metric("🧩 Dense Chunks", vector.get("chunk_count", "—"))
+    st.sidebar.caption(f"Corpus: {knowledge.get('path', '—')}")
+    st.sidebar.caption(
+        f"Retrieval: {retrieval.get('pipeline', '—')}"
+        + (f" · {retrieval.get('fusion')}" if retrieval.get('fusion') else "")
+    )
+    st.sidebar.caption(
+        f"Baseline: {retrieval.get('label', retrieval.get('mode', '—'))} · "
+        f"Chunking: {retrieval.get('chunking', '—')}"
+    )
+    st.sidebar.caption(
+        f"Dense index: {vector.get('status', 'unknown')} · {vector.get('path', '—')}"
+    )
+    st.sidebar.caption(
+        f"Sparse index: {sparse.get('status', 'unknown')} · {sparse.get('chunk_count', '—')} chunks"
+    )
     st.sidebar.caption(f"Embedding: {embedding.get('status', 'unknown')} · {embedding.get('model', '—')}")
-    st.sidebar.caption(f"Chroma: {vector.get('status', 'unknown')}")
     st.sidebar.caption(f"LLM: {llm.get('status', 'unknown')} · {llm.get('model', '—')}")
     st.sidebar.caption(
-        f"Build: {health.get('build_id', 'unknown')} · Prompt: {health.get('prompt_version', 'unknown')}"
+        f"Release: v{health.get('application_version', health.get('version', 'unknown'))} · "
+        f"Build: {health.get('build_id', 'unknown')}"
     )
     if health.get("prewarmed"):
         st.sidebar.success("预热完成")
@@ -108,12 +128,12 @@ else:
     st.sidebar.error("后端不可用，请通过启动器启动或执行健康检查。")
 
 st.sidebar.metric("🔍 Default Top-K", settings.top_k)
-st.sidebar.info("索引不会自动重建；更换 PDF 后请按 README 的安全流程人工操作。")
+st.sidebar.info("索引为冻结的 release artifact；页面不会自动重建或切换索引。")
 st.sidebar.divider()
 
 question = st.text_area(
     "输入你的问题",
-    value="PFAS 水处理工程化面临哪些主要限制？",
+    value="What are the main engineering limitations of PFAS treatment reported in this corpus?",
     height=100,
     max_chars=8000,
 )
@@ -268,8 +288,18 @@ if st.button("Run RAG", type="primary"):
             st.markdown(
                 f"**[S{index}] {meta.get('source', 'unknown')} · Page {meta.get('page', '?')} · {relevance}**"
             )
+            provenance = [
+                f"Paper: {meta.get('paper_id', '—')}",
+                f"Section: {meta.get('section', '—')}",
+            ]
+            page_start, page_end = meta.get("page_start"), meta.get("page_end")
+            if page_start is not None:
+                provenance.append(
+                    f"Pages: {page_start}" if page_start == page_end or page_end is None else f"Pages: {page_start}–{page_end}"
+                )
             st.caption(
-                f"Chunk index: {meta.get('chunk_index', '?')} · Distance: {distance:.4f}"
+                " · ".join(provenance)
+                + f" · Chunk: {meta.get('chunk_index', '?')} · Distance: {distance:.4f}"
             )
             st.markdown(f"> {hit.get('text', '')}")
             st.divider()

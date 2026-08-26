@@ -1,4 +1,8 @@
-# RAG 准确性、证据一致性与 8010 进程治理报告
+# 历史准确性与运行治理报告（pre-freeze）
+
+> 本文是冻结前 66-PDF Demo 的历史记录，不是 v1.0.0 的运行配置、发布指标或
+> 架构说明。最终 270-PDF `section_hybrid` release 请以 `README.md` 和
+> `docs/evaluation.md` 为准。
 
 报告日期：2026-08-07。项目：`literature-rag-eval-code`。本轮未更换 BGE-M3、ChromaDB 或 DeepSeek 配置，未修改 66 个 PDF，未重建 `chroma_db`，默认 Top-K 保持为 5。
 

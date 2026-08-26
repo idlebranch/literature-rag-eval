@@ -53,6 +53,8 @@ logs/
 *.bmp
 *.svg
 *.ico
+!docs/assets/
+!docs/assets/*.png
 
 # ── Data / serialization ──
 *.parquet
