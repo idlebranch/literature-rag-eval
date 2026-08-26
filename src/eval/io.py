@@ -66,6 +66,8 @@ def parse_retrieved_sources_field(field_value: str) -> List[RetrievedSource]:
 def compute_summary(run: EvalRun, badcase_threshold: int = 4) -> RunSummary:
     judged = [r.judge for r in run.results if r.judge is not None]
     f = [j.faithfulness for j in judged]
+    co = [j.correctness for j in judged if j.correctness > 0]
+    er = [j.evidence_relevance for j in judged if j.evidence_relevance > 0]
     c = [j.completeness for j in judged]
     ci = [j.citation for j in judged]
     o = [j.overall for j in judged]
@@ -77,6 +79,8 @@ def compute_summary(run: EvalRun, badcase_threshold: int = 4) -> RunSummary:
     return RunSummary(
         n_questions=len(run.results),
         avg_faithfulness=round(mean(f), 2) if f else 0.0,
+        avg_correctness=round(mean(co), 2) if co else 0.0,
+        avg_evidence_relevance=round(mean(er), 2) if er else 0.0,
         avg_completeness=round(mean(c), 2) if c else 0.0,
         avg_citation=round(mean(ci), 2) if ci else 0.0,
         avg_overall=round(mean(o), 2) if o else 0.0,
@@ -115,6 +119,8 @@ def migrate_from_csv(
                 if not qid:
                     continue
                 judge_index[qid] = JudgeScore(
+                    correctness=int(row.get("correctness_score") or 0),
+                    evidence_relevance=int(row.get("evidence_relevance_score") or 0),
                     faithfulness=int(row.get("faithfulness_score") or 0),
                     completeness=int(row.get("completeness_score") or 0),
                     citation=int(row.get("citation_score") or 0),

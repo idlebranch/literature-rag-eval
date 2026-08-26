@@ -11,7 +11,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
 from src.config import settings
 from src.tracing.schema import TraceRecord, TracedSource
@@ -32,6 +32,7 @@ class TraceRecorder:
         *,
         prompt_version: str = "",
         prompt_hash: str = "",
+        answer_mode: str = "quick",
     ) -> None:
         self.trace_id = uuid.uuid4().hex
         self._t0 = time.perf_counter()
@@ -40,6 +41,7 @@ class TraceRecorder:
         self.top_k = top_k
         self.prompt_version = prompt_version
         self.prompt_hash = prompt_hash
+        self.answer_mode = answer_mode
         self.record: Optional[TraceRecord] = None
         self._emitted = False
 
@@ -70,7 +72,9 @@ class TraceRecorder:
                     source=str(meta.get("source", "")),
                     page=page,
                     distance=distance,
-                    text=str(hit.get("text", "") or ""),
+                    # A short preview is enough for diagnostics; never persist a
+                    # complete retrieved document chunk in request traces.
+                    text=" ".join(str(hit.get("text", "") or "").split())[:200],
                 )
             )
         self.record = TraceRecord(
@@ -82,10 +86,13 @@ class TraceRecorder:
             model_answer=str(result.get("answer", "") or ""),
             model=str(result.get("model", "") or settings.llm_model),
             embedding_model=settings.embedding_model,
-            prompt_version=self.prompt_version,
-            prompt_hash=self.prompt_hash,
+            prompt_version=str(result.get("prompt_version") or self.prompt_version),
+            prompt_hash=str(result.get("prompt_hash") or self.prompt_hash),
+            answer_mode=str(result.get("answer_mode") or self.answer_mode),
             latency_ms=self._latency_ms(),
             token_usage=result.get("usage"),
+            performance=result.get("performance"),
+            citation_validation=result.get("citation_validation"),
             status="success",
             error=None,
         )
@@ -102,8 +109,11 @@ class TraceRecorder:
             embedding_model=settings.embedding_model,
             prompt_version=self.prompt_version,
             prompt_hash=self.prompt_hash,
+            answer_mode=self.answer_mode,
             latency_ms=self._latency_ms(),
             token_usage=None,
+            performance=None,
+            citation_validation=None,
             status="error",
             error=f"{type(exc).__name__}: {exc}",
         )
@@ -126,6 +136,8 @@ def traced_chat(
     store_path: Optional[Path] = None,
     prompt_version: Optional[str] = None,
     prompt_hash: Optional[str] = None,
+    request_parse_ms: float = 0.0,
+    answer_mode: str = "quick",
 ) -> Tuple[Dict[str, Any], str]:
     """Run one RAG call under tracing and return ``(result, trace_id)``.
 
@@ -151,13 +163,81 @@ def traced_chat(
         top_k,
         prompt_version=prompt_version,
         prompt_hash=prompt_hash,
+        answer_mode=answer_mode,
     )
     try:
-        result = answer_fn(question, top_k=top_k)
+        if request_parse_ms or answer_mode != "quick":
+            result = answer_fn(
+                question,
+                top_k=top_k,
+                request_parse_ms=request_parse_ms,
+                answer_mode=answer_mode,
+            )
+        else:
+            result = answer_fn(question, top_k=top_k)
         recorder.record_success(result)
         return result, recorder.trace_id
     except Exception as e:
         recorder.record_error(e)
         raise
     finally:
-        recorder.emit(store_path)
+        # Online traces may contain questions, answers, and retrieved snippets,
+        # so they are opt-in. Explicit test/export paths still always emit.
+        if settings.tracing_enabled or store_path is not None:
+            recorder.emit(store_path)
+
+
+def traced_stream(
+    question: str,
+    top_k: int,
+    *,
+    stream_fn: Optional[Callable[..., Iterator[Dict[str, Any]]]] = None,
+    store_path: Optional[Path] = None,
+    request_parse_ms: float = 0.0,
+    answer_mode: str = "quick",
+) -> Tuple[Iterator[Dict[str, Any]], str]:
+    """Wrap a streaming RAG call in the same one-record trace lifecycle."""
+    from src import rag_chain
+
+    if stream_fn is None:
+        stream_fn = rag_chain.stream_answer_question
+    recorder = TraceRecorder(
+        question,
+        top_k,
+        prompt_version=rag_chain.PROMPT_VERSION,
+        prompt_hash=rag_chain._prompt_hash(answer_mode),
+        answer_mode=answer_mode,
+    )
+
+    def consume() -> Iterator[Dict[str, Any]]:
+        stream = stream_fn(
+            question,
+            top_k=top_k,
+            request_parse_ms=request_parse_ms,
+            answer_mode=answer_mode,
+        )
+        recorded = False
+        try:
+            for event in stream:
+                if event.get("type") == "final":
+                    result = event.get("result") or {}
+                    result["trace_id"] = recorder.trace_id
+                    recorder.record_success(result)
+                    recorded = True
+                yield event
+            if not recorded:
+                raise RuntimeError("stream ended without a final result")
+        except GeneratorExit:
+            recorder.record_error(RuntimeError("client_disconnected"))
+            raise
+        except Exception as exc:
+            recorder.record_error(exc)
+            raise
+        finally:
+            close = getattr(stream, "close", None)
+            if callable(close):
+                close()
+            if settings.tracing_enabled or store_path is not None:
+                recorder.emit(store_path)
+
+    return consume(), recorder.trace_id

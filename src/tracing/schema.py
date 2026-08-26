@@ -33,8 +33,11 @@ class TraceRecord:
     embedding_model: str = ""
     prompt_version: str = ""
     prompt_hash: str = ""
+    answer_mode: str = "quick"
     latency_ms: float = 0.0
     token_usage: Optional[Dict[str, Any]] = None
+    performance: Optional[Dict[str, Any]] = None
+    citation_validation: Optional[Dict[str, Any]] = None
     status: str = "success"  # "success" | "error"
     error: Optional[str] = None
 

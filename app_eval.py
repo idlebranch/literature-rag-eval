@@ -2,11 +2,25 @@ import pandas as pd
 import streamlit as st
 from pathlib import Path
 
-st.set_page_config(page_title="RAG Eval Dashboard", layout="wide")
+st.set_page_config(page_title="RAG Eval Dashboard", page_icon="📊", layout="wide")
 st.title("RAG Evaluation Dashboard")
 
-VIEWS = Path("outputs/views")
-INDEX = Path("outputs/INDEX.md")
+
+def _find_eval_root() -> Path:
+    current = Path("outputs")
+    if list((current / "views").glob("*.csv")):
+        return current
+    archives = sorted(
+        (path for path in current.glob("archive_*") if list((path / "views").glob("*.csv"))),
+        reverse=True,
+    )
+    return archives[0] if archives else current
+
+
+EVAL_ROOT = _find_eval_root()
+VIEWS = EVAL_ROOT / "views"
+INDEX = EVAL_ROOT / "INDEX.md"
+st.caption(f"Data source: `{EVAL_ROOT}`")
 
 # ── Column name mapping (view CSV → dashboard canonical names) ──
 _COL_MAP = {

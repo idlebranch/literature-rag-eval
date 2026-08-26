@@ -44,12 +44,16 @@ class JudgeScore:
     overall: int
     error_type: str
     reason: str
+    correctness: int = 0
+    evidence_relevance: int = 0
     judge_model: str = ""
     judged_at: str = ""
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "JudgeScore":
         return cls(
+            correctness=int(d.get("correctness", 0) or 0),
+            evidence_relevance=int(d.get("evidence_relevance", 0) or 0),
             faithfulness=int(d.get("faithfulness", 0) or 0),
             completeness=int(d.get("completeness", 0) or 0),
             citation=int(d.get("citation", 0) or 0),
@@ -113,9 +117,11 @@ class RunConfig:
     rag_model: str = ""
     rag_prompt_version: str = ""
     rag_prompt_hash: str = ""
+    answer_mode: str = "quick"
     embedding_model: str = ""
     top_k: int = 5
     judge_model: str = ""
+    judge_prompt_version: str = ""
     groundtruth_file: str = ""
 
     @classmethod
@@ -124,9 +130,11 @@ class RunConfig:
             rag_model=d.get("rag_model", "") or "",
             rag_prompt_version=d.get("rag_prompt_version", "") or "",
             rag_prompt_hash=d.get("rag_prompt_hash", "") or "",
+            answer_mode=d.get("answer_mode", "quick") or "quick",
             embedding_model=d.get("embedding_model", "") or "",
             top_k=int(d.get("top_k", 5) or 5),
             judge_model=d.get("judge_model", "") or "",
+            judge_prompt_version=d.get("judge_prompt_version", "") or "",
             groundtruth_file=d.get("groundtruth_file", "") or "",
         )
 
@@ -135,6 +143,8 @@ class RunConfig:
 class RunSummary:
     n_questions: int = 0
     avg_faithfulness: float = 0.0
+    avg_correctness: float = 0.0
+    avg_evidence_relevance: float = 0.0
     avg_completeness: float = 0.0
     avg_citation: float = 0.0
     avg_overall: float = 0.0
@@ -148,6 +158,8 @@ class RunSummary:
         return cls(
             n_questions=int(d.get("n_questions", 0) or 0),
             avg_faithfulness=float(d.get("avg_faithfulness", 0.0) or 0.0),
+            avg_correctness=float(d.get("avg_correctness", 0.0) or 0.0),
+            avg_evidence_relevance=float(d.get("avg_evidence_relevance", 0.0) or 0.0),
             avg_completeness=float(d.get("avg_completeness", 0.0) or 0.0),
             avg_citation=float(d.get("avg_citation", 0.0) or 0.0),
             avg_overall=float(d.get("avg_overall", 0.0) or 0.0),

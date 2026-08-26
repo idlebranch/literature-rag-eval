@@ -33,9 +33,11 @@ def to_markdown(run: EvalRun, path: Path, badcase_threshold: int = 4) -> Path:
     lines.append(f"- **Generated**: {run.timestamp}")
     lines.append(f"- **RAG model**: `{run.config.rag_model or '-'}`")
     lines.append(f"- **Prompt version**: `{run.config.rag_prompt_version or '-'}`")
+    lines.append(f"- **Answer mode**: `{run.config.answer_mode or '-'}`")
     lines.append(f"- **Embedding**: `{run.config.embedding_model or '-'}`")
     lines.append(f"- **Top-K**: {run.config.top_k}")
     lines.append(f"- **Judge model**: `{run.config.judge_model or '-'}`")
+    lines.append(f"- **Judge prompt**: `{run.config.judge_prompt_version or '-'}`")
     lines.append(f"- **Groundtruth**: `{run.config.groundtruth_file or '-'}`")
     if run.notes:
         lines.append(f"- **Notes**: {run.notes}")
@@ -45,6 +47,8 @@ def to_markdown(run: EvalRun, path: Path, badcase_threshold: int = 4) -> Path:
     lines.append("")
     lines.append("| 维度 | 平均分 (1-5) |")
     lines.append("| --- | --- |")
+    lines.append(f"| correctness | {summary.avg_correctness} |")
+    lines.append(f"| evidence relevance | {summary.avg_evidence_relevance} |")
     lines.append(f"| faithfulness | {summary.avg_faithfulness} |")
     lines.append(f"| completeness | {summary.avg_completeness} |")
     lines.append(f"| citation | {summary.avg_citation} |")
@@ -122,6 +126,8 @@ def to_markdown(run: EvalRun, path: Path, badcase_threshold: int = 4) -> Path:
             lines.append("")
             lines.append("| 维度 | 评分 |")
             lines.append("| --- | --- |")
+            lines.append(f"| correctness | {_score_bar(r.judge.correctness)} |")
+            lines.append(f"| evidence relevance | {_score_bar(r.judge.evidence_relevance)} |")
             lines.append(f"| faithfulness | {_score_bar(r.judge.faithfulness)} |")
             lines.append(f"| completeness | {_score_bar(r.judge.completeness)} |")
             lines.append(f"| citation | {_score_bar(r.judge.citation)} |")
@@ -162,6 +168,8 @@ def to_csv(run: EvalRun, path: Path) -> Path:
                 "qid",
                 "answer_type",
                 "question",
+                "correctness",
+                "evidence_relevance",
                 "faithfulness",
                 "completeness",
                 "citation",
@@ -182,6 +190,8 @@ def to_csv(run: EvalRun, path: Path) -> Path:
                     r.qid,
                     r.answer_type,
                     r.question,
+                    j.correctness if j else "",
+                    j.evidence_relevance if j else "",
                     j.faithfulness if j else "",
                     j.completeness if j else "",
                     j.citation if j else "",

@@ -22,6 +22,11 @@ from typing import Any, Dict, List, Optional
 from tqdm import tqdm
 
 from src.config import settings
+from src.prompts import (
+    JUDGE_PROMPT_VERSION,
+    JUDGE_SYSTEM_PROMPT,
+    build_judge_user_prompt,
+)
 from src.eval.health import require_healthy
 from src.eval.io import compute_summary, load_run, save_run
 from src.eval.schema import (
@@ -66,56 +71,12 @@ def parse_judge_json(text: str) -> Dict[str, Any]:
 
 def build_judge_prompt(qr: QuestionResult, sources_block: str) -> str:
     """LLM-as-judge prompt. Returns plain text expecting JSON back."""
-    return f"""你是一个严谨的 RAG 答案评测员，任务是评估专业文献 RAG 系统的回答质量。
-
-请根据：
-1. 用户问题
-2. ideal_answer
-3. model_answer
-4. retrieved_sources
-
-对回答进行评分。
-
-评分维度：
-- faithfulness_score：回答是否忠实于 retrieved_sources，1-5 分。
-- completeness_score：回答是否覆盖 ideal_answer 的关键要点，1-5 分。
-- citation_score：回答中的引用是否支撑对应结论，1-5 分。
-- overall_score：综合评分，1-5 分。
-
-错误类型 error_type 只能从以下选：
-none, retrieval_error, generation_error, citation_error, incomplete_answer, hallucination, insufficient_context
-
-评分标准：
-5 = 很好，基本可直接使用
-4 = 较好，只有轻微遗漏
-3 = 可用但不完整
-2 = 有明显错误、遗漏或引用问题
-1 = 不可用、答非所问或幻觉严重
-
-请只输出 JSON，不要输出额外解释。
-
-用户问题：
-{qr.question}
-
-ideal_answer：
-{qr.ideal_answer}
-
-model_answer：
-{qr.model_answer}
-
-retrieved_sources：
-{sources_block}
-
-输出 JSON 格式：
-{{
-  "faithfulness_score": 1,
-  "completeness_score": 1,
-  "citation_score": 1,
-  "overall_score": 1,
-  "error_type": "none",
-  "judge_reason": "一句话说明评分理由"
-}}
-"""
+    return build_judge_user_prompt(
+        question=qr.question,
+        ideal_answer=qr.ideal_answer,
+        model_answer=qr.model_answer,
+        retrieved_sources=sources_block,
+    )
 
 
 def _format_sources_block(sources: List[RetrievedSource]) -> str:
@@ -135,12 +96,14 @@ def run_rag(
     run_id: str,
     output_path: Path,
     prompt_version: str = "",
+    answer_mode: str = "quick",
     sleep_secs: float = 0.5,
     limit: Optional[int] = None,
     skip_preflight: bool = False,
 ) -> EvalRun:
     """Run RAG over all groundtruth questions, save EvalRun as JSON (incrementally)."""
-    from src.rag_chain import SYSTEM_PROMPT, answer_question
+    from src.rag_chain import PROMPT_VERSION, answer_question
+    from src.prompts import build_answer_system_prompt
 
     if not skip_preflight:
         require_healthy()
@@ -149,10 +112,13 @@ def run_rag(
     if limit:
         cases = cases[:limit]
 
+    effective_prompt_version = prompt_version or PROMPT_VERSION
+    system_prompt = build_answer_system_prompt(answer_mode)
     config = RunConfig(
         rag_model=settings.llm_model,
-        rag_prompt_version=prompt_version,
-        rag_prompt_hash=prompt_hash(SYSTEM_PROMPT),
+        rag_prompt_version=effective_prompt_version,
+        rag_prompt_hash=prompt_hash(system_prompt),
+        answer_mode=answer_mode,
         embedding_model=settings.embedding_model,
         top_k=settings.top_k,
         groundtruth_file=str(groundtruth),
@@ -161,14 +127,14 @@ def run_rag(
         run_id=run_id,
         timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         config=config,
-        notes=f"prompt_version={prompt_version}",
+        notes=f"prompt_version={effective_prompt_version}; answer_mode={answer_mode}",
     )
 
     for case in tqdm(cases, desc="RAG"):
         qid = case.get("id", "")
         question = case.get("question", "")
         try:
-            result = answer_question(question)
+            result = answer_question(question, answer_mode=answer_mode)
             retrieved = [
                 RetrievedSource(
                     sid=f"S{i+1}",
@@ -245,7 +211,7 @@ def judge_run(
             resp = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "你是一个严格、保守、专业的RAG评测员。"},
+                    {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0,
@@ -261,6 +227,8 @@ def judge_run(
             content = resp.choices[0].message.content or ""
             j = parse_judge_json(content)
             qr.judge = JudgeScore(
+                correctness=int(j.get("correctness_score", 0) or 0),
+                evidence_relevance=int(j.get("evidence_relevance_score", 0) or 0),
                 faithfulness=int(j.get("faithfulness_score", 0) or 0),
                 completeness=int(j.get("completeness_score", 0) or 0),
                 citation=int(j.get("citation_score", 0) or 0),
@@ -276,6 +244,7 @@ def judge_run(
 
         run.summary = compute_summary(run)
         run.config.judge_model = model
+        run.config.judge_prompt_version = JUDGE_PROMPT_VERSION
         save_run(run, run_path)
         sleep(sleep_secs)
 
