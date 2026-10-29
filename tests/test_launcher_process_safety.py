@@ -9,7 +9,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-loader = importlib.machinery.SourceFileLoader("launcher_safety", str(ROOT / "launcher.pyw"))
+loader = importlib.machinery.SourceFileLoader("launcher_safety", str(ROOT / "deploy" / "windows" / "launcher.pyw"))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 launcher = importlib.util.module_from_spec(spec)
 loader.exec_module(launcher)

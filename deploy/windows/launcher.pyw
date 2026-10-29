@@ -51,7 +51,11 @@ PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 def project_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent.parent
-    return Path(__file__).resolve().parent
+    here = Path(__file__).resolve().parent
+    for candidate in (here, *here.parents[:3]):
+        if (candidate / "build_manifest.json").is_file():
+            return candidate
+    return here
 
 
 ROOT = project_root()

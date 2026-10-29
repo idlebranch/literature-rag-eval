@@ -1,13 +1,14 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+set "SCRIPT_DIR=%~dp0"
+cd /d "%SCRIPT_DIR%..\.."
 
 if not exist ".venv\Scripts\python.exe" (
   echo [ERROR] .venv\Scripts\python.exe not found.
   exit /b 1
 )
 
-if not exist "launcher.pyw" (
+if not exist "%SCRIPT_DIR%launcher.pyw" (
   echo [ERROR] launcher.pyw not found.
   exit /b 1
 )
@@ -18,11 +19,11 @@ if not exist "launcher.pyw" (
   --onefile ^
   --windowed ^
   --name LiteratureRAG-Launcher ^
-  --distpath dist ^
-  --workpath build\launcher ^
-  --specpath build ^
-  launcher.pyw
+  --distpath "%SCRIPT_DIR%dist" ^
+  --workpath "%SCRIPT_DIR%build\launcher" ^
+  --specpath "%SCRIPT_DIR%build" ^
+  "%SCRIPT_DIR%launcher.pyw"
 
 if errorlevel 1 exit /b %errorlevel%
-echo Built: %CD%\dist\LiteratureRAG-Launcher.exe
+echo Built: %SCRIPT_DIR%dist\LiteratureRAG-Launcher.exe
 endlocal
