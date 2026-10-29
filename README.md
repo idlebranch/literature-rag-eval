@@ -1,122 +1,80 @@
-# 水处理科研文献 RAG 系统
+# 水处理文献问答系统
 
-[English Version](README_EN.md)
+一个面向水处理科研论文的检索问答系统。语料是 270 篇真实 PDF，用户用中文或英文提问，系统检索相关段落、给出带出处的回答；如果检索不到足够证据，它会说"答不了"而不是编。
 
-这是一个面向水处理科研文献的 evidence-grounded RAG 系统。它不是普通的
-“Chat with PDF” 演示，而是一条已冻结、已评测的端到端链路，重点关注检索质量、
-Answerability 边界、证据可追溯性与 Failure Analysis。
+这是我做硕士课题时顺手攒下来的东西。文献里查数据太慢，一个吸附容量往往埋在几十篇论文的表格和正文里，所以想试试能不能自动化这个过程。做下来发现难点根本不在生成，而在"怎么判断检索到的段落真的能支撑这个结论"。
 
-发布版本包含 **270 篇真实科研 PDF**，使用冻结的 `section_hybrid` 基线：
-Section-aware chunks、BGE-M3 Dense Retrieval + Sparse Retrieval，以及 RRF 融合。
+![带出处的回答](docs/assets/demo-answer.png)
 
-## 项目简介
-
-系统围绕科研文献问答中真正影响可信度的问题设计：
-
-- Section-aware scientific PDF ingestion，保留 paper / page / section / chunk provenance；
-- BGE-M3 Dense + Sparse Hybrid Retrieval，并使用 RRF 融合；
-- 基于证据的 Answerability：answer、clarify、refuse、partial answer、premise correction；
-- 生成后的 deterministic Citation Validation，引用只映射到本次检索来源；
-- leakage-aware evaluation、paper-disjoint final acceptance 与 Failure Analysis；
-- 本地 FastAPI + Streamlit 演示，页面显示真实运行状态，不在 UI 内重建索引。
-
-## 系统架构
+## 检索链路
 
 ```mermaid
 flowchart LR
-    A[270 Scientific PDFs] --> B[Section-aware Parsing]
-    B --> C[Structured, page-traceable chunks]
-    C --> D[BGE-M3 Dense Index]
-    C --> E[BGE-M3 Sparse Index]
-    D --> F[RRF Hybrid Retrieval]
+    A[270 篇 PDF] --> B[按章节切分]
+    B --> C[保留页码与章节的可追溯片段]
+    C --> D[BGE-M3 稠密索引]
+    C --> E[BGE-M3 稀疏索引]
+    D --> F[RRF 融合排序]
     E --> F
-    F --> G[Evidence and Answerability Routing]
-    G --> H[LLM Generation]
-    H --> I[Deterministic Citation Validation]
+    F --> G[证据判断：能答/需澄清/拒答]
+    G --> H[模型生成]
+    H --> I[引用校验]
 ```
 
-## 最终评测
+切分是按章节做的，不是按固定字符数硬切。科研论文的段落有语义边界，方法节和结论节的同一句话含义完全不同，硬切会把表格和正文混在一起。每个片段都保留论文 ID、页码、章节名，回答里的引用能一路点回到原文位置。
 
-v1.0.0 使用一套冻结、fresh 的 **32-case** Final Acceptance；其 gold-paper IDs 与
-Eval V2 **零重叠**，所有有证据的 case 均重新定位到冻结本地 PDF，验证结果为 **0 errors**。
+稠密和稀疏两路检索结果用 RRF 融合。稀疏检索对专业术语和数字（比如"34.64 mg/g"）更敏感，稠密检索对同义改写更宽容，两路互补。
+
+参考文献列表被主动排除在索引之外。之前不做这个处理时，检索会命中某篇综述的参考文献条目，看起来像找到了证据，其实只是一条书目信息。
+
+## 评测
+
+用一套和开发集完全无重叠的 32 条验收题，所有题目重新定位到本地 PDF 做过人工核对，定位错误 0 条。
 
 | 指标 | 结果 |
-| --- | ---: |
+|---|---:|
 | Recall@10 | 91.3% |
 | PageHit@10 | 91.3% |
 | EvidenceSpanHit@10 | 87.0% |
-| Action Accuracy | 75.0% |
-| ANSWERABLE Accuracy | 71.4% |
-| NO_EVIDENCE Recall | 100% |
+| 动作判断准确率 | 75.0% |
+| 应答题准确率 | 71.4% |
+| 无证据题识别率 | 100% |
 
-**Verdict：`FINAL_ACCEPT_WITH_LIMITATIONS`。** 检索与 deterministic
-Answerability 的发布门槛均通过。方法、冻结输入哈希与适用边界见
-[docs/evaluation.md](docs/evaluation.md) 和 [LIMITATIONS.md](LIMITATIONS.md)。
+动作判断指系统对每条问题的处理是否恰当：该答的答了、该澄清的澄清了、该拒的拒了、前提错误的纠正了。75% 不算高，主要失误集中在"应该澄清却直接回答"这一类。
 
-### Citation 与 Unsupported Claim 指标说明
+检索召回 91.3%，剩下 8.7% 的漏检原因我逐条查过：一部分是 gold 段落落在参考文献里（这类无解，除非把参考文献加回索引），一部分是中文查询把中文硕论排在英文目标论文前面，还有一部分是融合排序把正确答案挤出了前十。
 
-Automatic Citation Support 为 **61.9%**，automatic Unsupported Claim metric 为
-**42.86%**。后者**不是 hallucination rate**。该自动 validator 有意保守，结果会受到
-quick-mode 1,200-token truncation、bibliographic claim detection 与 normalization 的影响。
+方法和冻结输入的哈希值写在 [docs/evaluation.md](docs/evaluation.md)。
 
-evidence-level audit 为 **10 SUPPORTED / 1 flagged UNSUPPORTED**；唯一 flag 是
-`34.64 mg/g` 与 `34.64mg/g` 的空白 normalization artifact。项目不宣称“零幻觉”或
-“完全可信”，而是如实报告检索证据与 deterministic validator 能支持的范围。
+## 拒答与引用校验
 
-## Demo
+这两块是系统可信度的关键，也是我花时间最多的地方。
 
-以下图片均直接来自最终 Streamlit v1.0.0 runtime，不使用 mock 或生成式截图。
+拒答分四种动作：直接回答、要求澄清、拒答、指出问题前提有误。比如问"某材料的吸附容量是多少"但没说 pH 和温度，系统会先问条件；问"为什么 A 材料比 B 材料好"而检索到的证据互相矛盾时，它会分来源呈现结果，而不去编一个统一结论。
 
-### 证据驱动回答
+![拒答示例](docs/assets/demo-refusal.png)
 
-![270-paper runtime 中带引用的 evidence-grounded 回答](docs/assets/demo-answer.png)
+引用校验是生成之后做的：回答里的每个引用标记必须能映射回本次检索到的片段，映射不上的标记会被剔除或标记为无支撑。这一步不依赖模型自我声明，是确定性检查。
 
-示例展示最终 270-paper runtime 对 MB 吸附容量的证据支持回答与 source citation。
+自动校验给出的引用支持率是 61.9%，无支撑论断比例 42.86%。后面这个数字**不是幻觉率**，校验器有意保守，还会受生成长度截断和书目类论断识别的影响。人工抽查了 11 条证据，10 条支持、1 条被标记，唯一那条是 `34.64 mg/g` 和 `34.64mg/g` 的空格归一化问题。所以准确的说法是：在能自动验证的范围内，引用基本可靠；超出这个范围的部分，系统不做承诺。
 
-### Evidence 溯源
+## 一次失败的尝试
 
-![带来源溯源的 Retrieved Contexts](docs/assets/demo-evidence.png)
+早期版本里我加了一个基于关键词的冲突检测：检索结果里同时出现 "increase" 和 "decrease" 就判定证据冲突，转成"来源有分歧"的回答。在开发集上效果不错。
 
-Retrieved Contexts 展示支持回答的 source paper、page range、section、chunk 与 distance
-metadata，便于回溯证据来源。
+换到独立评测集上直接崩了。普通可回答的段落里同时出现这两个词太常见了，比如"温度升高时吸附量增加，但超过 40 度后下降"，这明明是同一篇论文在描述完整规律，被误判成两篇文献结论冲突。
 
-### 保守 Answerability / 无证据拒答
-
-![条件不足问题的澄清回答](docs/assets/demo-refusal.png)
-
-当问题缺少必要条件或证据不足时，系统会澄清或拒答，而不是生成无依据结论。
-
-## Failure Analysis
-
-已消费的 held-out Eval V2 曾暴露 keyword-based auto-conflict routing 的泛化问题：
-普通可回答证据中出现 “increase” 与 “decrease” 等词，就可能被错误路由为 conflict。
-后续 ablation 得到 **CONFLICT_OFF：6 wins / 1 loss**，因此项目删除了不可靠 heuristic，
-而不是为了 benchmark 继续堆叠规则。
-
-Eval V2 之后仅作为 regression/postmortem 材料，不再作为新的 held-out 泛化结论。
-最终发布证据来自 fresh、paper-disjoint 的 Final Acceptance。条件差异与真实来源分歧由
-回答层按来源、指标和实验条件呈现，并附带 citation provenance。
-
-## 局限性
-
-- 冻结语料为 270 篇主 PDF，不包含独立 Supplementary files；
-- 不解析 XLSX/CSV supplementary datasets；
-- PDF table 在文本提取时可能丢失行列结构，Figure-only evidence 不在当前覆盖范围；
-- References 被主动排除出检索索引，以避免 citation leakage；
-- 不做 automatic conflict classification；条件差异由回答层结合来源与实验条件呈现。
-
-完整边界说明见 [LIMITATIONS.md](LIMITATIONS.md)。
+消融实验的结果是关掉这个规则 6 胜 1 负。所以我把它删了，而不是继续加规则去补。这个教训我记下了：在评测集上调规则，很容易把过拟合当成进步。
 
 ## 快速开始
 
-使用项目虚拟环境和本地 `.env`；不要提交 API 凭据。
+需要 Python 3.11 以上、本地 PDF 语料和 BGE-M3 模型。索引不随仓库发布，需要自己构建。
 
 ```powershell
-cd C:\Users\10475\AI_PROJECT\literature_rag_eval_code
 Copy-Item .env.example .env
 ```
 
-在 `.env` 中设置 `OPENAI_API_KEY` 与 `OPENAI_BASE_URL`。已提交的示例配置指向冻结发布产物：
+在 `.env` 里配好模型接口和语料路径。仓库里的示例配置指向冻结版本的结构：
 
 ```env
 PDF_DIR=./data/papers/final_corpus
@@ -127,23 +85,51 @@ RETRIEVAL_MODE=hybrid_dense_sparse
 SPARSE_INDEX_DIR=./sparse_index_section_aware_270_gpu
 ```
 
-分别启动 API 与 UI：
+分别启动 API 和界面：
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn api_server:app --host 127.0.0.1 --port 8010
 .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 ```
 
-演示前可核对运行时身份：
+健康检查会返回当前版本、检索模式、文档数、索引片段数和稀疏索引状态：
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8010/health
 ```
 
-预期为：`v1.0.0-final`、`section_hybrid`、270 PDFs、17,028 indexable Dense chunks
-与 ready sparse index。Streamlit 位于 `http://127.0.0.1:8501`，FastAPI docs 位于
-`http://127.0.0.1:8010/docs`。Windows 下 `launcher.pyw` 会启动同一 API/UI 配置，
-等待 runtime warmup 后打开浏览器，不会重建或替换索引。
+Windows 上可以用桌面启动器，它会拉起同样的 API 和界面进程，等服务预热完再打开浏览器，不会重建索引：
+
+```powershell
+.\deploy\windows\build_launcher.cmd
+powershell -ExecutionPolicy Bypass -File .\deploy\windows\create_desktop_shortcut.ps1
+```
+
+## 项目结构
+
+```text
+api_server.py       FastAPI 服务
+app.py              Streamlit 界面
+app_eval.py         评测界面
+src/                检索、切分、生成、引用校验、评测、链路追踪
+src/eval/           评测框架：运行、打分、导出、坏例分析
+scripts/            语料抓取、索引构建、消融实验、验收脚本
+tests/              单元测试与回归测试
+docs/               评测方法、实验记录、Prompt 与检索调优、语料清单、测试题库
+deploy/windows/     Windows 桌面启动器和打包脚本
+groundtruth/        评测集模板（真实评测数据不入库）
+```
+
+## 局限
+
+- 语料只有 270 篇正文 PDF，不含补充材料
+- 不解析补充材料里的 XLSX/CSV 数据集
+- PDF 表格提取会丢行列结构，纯图表的证据不在覆盖范围内
+- 参考文献被排除在索引外，代价是书目类问题答不了
+- 不做自动的冲突分类，条件差异交给回答层按来源分别呈现
+- 中文查询检索英文论文的效果明显弱于英文查询
+
+完整说明见 [LIMITATIONS.md](LIMITATIONS.md)。
 
 ## 测试
 
@@ -151,10 +137,8 @@ Invoke-RestMethod http://127.0.0.1:8010/health
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-v1.0.0 最终验证结果为 **189 passed**。Acceptance 数据与 corpus artifacts 有意不纳入 Git；
-公开方法与最终指标见 [docs/evaluation.md](docs/evaluation.md)。
+本地最终一轮 189 个测试全部通过。验收数据、语料和索引产物按设计不进 Git。
 
 ## 数据与许可
 
-本仓库不发布本地 corpus、vector indexes、evaluation gold evidence 或 API credentials。
-在项目范围外使用源论文前，请自行核对其许可条件。
+代码用 MIT 许可。仓库不发布论文原文、向量索引、评测 gold 数据和 API 凭据。语料中的论文版权归原作者与出版方所有，超出本项目范围使用前请自行确认许可条件。

@@ -1,13 +1,12 @@
-# Historical Product Test Question Set (pre-freeze)
+# 产品测试题库
 
-> This question set belongs to the early `data/pdfs` corpus stage. It is not the
-> v1.0.0 acceptance set and does not describe the final runtime or metrics.
+用于产品可用性测试和检索质量的手工评测。题目围绕水处理与环境工程文献设计，覆盖从库级概览到反幻觉边界的六类场景。
 
-用于产品可用性测试与 RAG 质量手工评测。所有问题基于 `data/pdfs/` 中的环境工程文献设计。
+注意这套题是示例题库，不是发布用的验收集；正式验收集是 32 条独立的题，不随仓库发布。
 
 ---
 
-## 1. 文献库总览 (Collection Overview)
+## 1. 文献库总览
 
 验证系统对文献库整体构成的掌握程度。
 
@@ -19,7 +18,7 @@
 
 ---
 
-## 2. 单篇事实问题 (Single-Paper Factual)
+## 2. 单篇事实问题
 
 验证对单篇文献关键信息的精确召回。
 
@@ -31,7 +30,7 @@
 
 ---
 
-## 3. 多文献比较 (Cross-Paper Comparison)
+## 3. 多文献比较
 
 验证对不同文献结论的对比整合能力。
 
@@ -44,7 +43,7 @@
 
 ---
 
-## 4. 机制归纳 (Mechanism Synthesis)
+## 4. 机制归纳
 
 验证从多篇文献中归纳共性机制的能力。
 
@@ -56,7 +55,7 @@
 
 ---
 
-## 5. 反幻觉边界问题 (Anti-Hallucination Boundary)
+## 5. 反幻觉边界问题
 
 验证系统在信息不足或不相关时的诚实度。
 
@@ -70,7 +69,7 @@
 
 ---
 
-## 6. 文献综述生成 (Mini-Review Generation)
+## 6. 文献综述生成
 
 验证系统整合多源信息生成综述性文本的能力。
 

@@ -1,4 +1,4 @@
-# Prompt 与模型调用清单
+# 模型调用链
 
 本清单以最终实际发送给模型的 `messages` 为准，而不是只搜索含有 “prompt” 字样的字符串。正式回答 Prompt 统一位于 `src/prompts.py`，版本为 `rag_answer_prompt_v2`。
 

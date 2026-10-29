@@ -1,8 +1,8 @@
-# Release Smoke Test
+# 发布核对清单
 
 这是冻结 v1.0.0 演示的发布核对清单；它不会重建索引，也不会运行 acceptance benchmark。
 
-## Runtime identity
+## 运行身份
 
 启动 API 与 Streamlit UI 后，`/health` 应报告：
 
@@ -13,10 +13,10 @@
 - sparse index：`ready`，17,028 chunks
 - retrieval：`section_hybrid`、BGE-M3 Dense + Sparse、RRF、Section-aware
 
-## 两项 live checks
+## 两项实机检查
 
 1. 提交一个可直接回答的 MB 吸附容量问题。确认回答包含有文献支持的 `34.64 mg/g`、
-   至少一个有效 `[Sx]` citation，以及可展开的 paper/page/section provenance。source ordinal
+   至少一个有效 `[Sx]` citation，以及可展开的 paper/page/section provenance。来源编号
    会随检索 context 排序变化，但必须能映射回页面展示的 context card。
 2. 提交 “What year did the French Revolution begin?”。确认返回 evidence-insufficiency，且不
    编造 citation。
